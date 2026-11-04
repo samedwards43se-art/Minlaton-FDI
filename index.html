@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minlaton GFDI Calculator</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--text:#1f2a24;--muted:#66736b;--line:#e2ddd3;--accent:#b8541c;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16191a;--card:#202526;--text:#ece8e1;--muted:#97a39b;--line:#333b3c;--accent:#f0894f}}
+:root[data-theme="dark"]{--bg:#16191a;--card:#202526;--text:#ece8e1;--muted:#97a39b;--line:#333b3c;--accent:#f0894f}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.sub{color:var(--muted);margin:0 0 18px;font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:.85rem;color:var(--muted);margin:12px 0 4px}
+label:first-child{margin-top:0}
+.row{display:flex;gap:8px}
+input,select{width:100%;font-size:1.05rem;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+.result{text-align:center}
+.big{font-size:3.4rem;font-weight:700;color:var(--accent);line-height:1}
+.cat{font-size:1.1rem;font-weight:600;margin-top:6px}
+.bar{height:10px;border-radius:5px;background:linear-gradient(90deg,#4a9d5b,#e3c341,#e8832c,#d13b2e,#7a1230);margin-top:14px;position:relative}
+.bar i{position:absolute;top:-4px;width:4px;height:18px;background:var(--text);border-radius:2px;transform:translateX(-2px)}
+.small{font-size:.8rem;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+td{padding:5px 0;border-bottom:1px solid var(--line)}
+td:last-child{text-align:right}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Minlaton GFDI Calculator</h1>
+<p class="sub">Enter the latest Minlaton Airport observation to get a McArthur Grassland Fire Danger Index (Mark 4, 100% cured).</p>
+
+<div class="card">
+  <label for="t">Air temperature (°C)</label>
+  <input id="t" type="number" inputmode="decimal" value="35" step="0.1">
+
+  <label for="mode">Humidity input</label>
+  <select id="mode"><option value="rh">Relative humidity (%)</option><option value="dp">Dew point (°C)</option></select>
+  <div id="rhBox"><label for="rh">Relative humidity (%)</label>
+  <input id="rh" type="number" inputmode="decimal" value="15" step="1"></div>
+  <div id="dpBox" class="hide"><label for="dp">Dew point (°C)</label>
+  <input id="dp" type="number" inputmode="decimal" value="2" step="0.1"></div>
+
+  <label for="w">Wind speed</label>
+  <div class="row">
+    <input id="w" type="number" inputmode="decimal" value="25" step="1" style="flex:2">
+    <select id="wu" style="flex:1"><option value="1">km/h</option><option value="1.852">knots</option><option value="3.6">m/s</option></select>
+  </div>
+</div>
+
+<div class="card result">
+  <div class="small">GFDI</div>
+  <div class="big" id="out">–</div>
+  <div class="cat" id="cat"></div>
+  <div class="bar"><i id="mark" style="left:0%"></i></div>
+  <p class="small" id="note"></p>
+</div>
+
+<div class="card">
+  <table id="calc"></table>
+</div>
+
+<p class="small">GFDI = 2·exp(−23.6 + 5.01·ln C + 0.0281·T − 0.226·√RH + 0.633·√V), C = 100. Categories shown are the standard McArthur grassland classes. The SA Grain Harvesting Code sets its own harvest thresholds and wind inputs, so check the current Code and official Bureau of Meteorology and CFS sources before making harvest decisions. This page is an aid, not an official tool. Live Minlaton data can’t be fetched automatically here, so copy the readings from the Bureau’s Minlaton observations.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const cats=[[5,"Low–Moderate"],[12,"High"],[25,"Very High"],[50,"Severe"],[75,"Extreme"],[Infinity,"Catastrophic"]];
+function rhFromDew(t,d){const a=17.625,b=243.04;return 100*Math.exp(a*d/(b+d))/Math.exp(a*t/(b+t))}
+function calc(){
+  const T=parseFloat($("t").value),V=parseFloat($("w").value)*parseFloat($("wu").value);
+  let RH=$("mode").value==="rh"?parseFloat($("rh").value):rhFromDew(T,parseFloat($("dp").value));
+  if([T,V,RH].some(isNaN)){$("out").textContent="–";return}
+  RH=Math.min(100,Math.max(0,RH));
+  const C=100,lc=5.01*Math.log(C),tt=0.0281*T,rr=0.226*Math.sqrt(RH),vv=0.633*Math.sqrt(Math.max(0,V));
+  const ex=-23.6+lc+tt-rr+vv,g=2*Math.exp(ex);
+  $("out").textContent=g<10?g.toFixed(1):Math.round(g);
+  $("cat").textContent=cats.find(c=>g<c[0])[1];
+  $("mark").style.left=Math.min(100,g/100*100)+"%";
+  $("note").textContent=$("mode").value==="dp"?"Relative humidity from dew point: "+RH.toFixed(0)+"%":"";
+  $("calc").innerHTML=[["Constant (−23.6 + 5.01·ln 100)",(-23.6+lc).toFixed(3)],["Temperature term",tt.toFixed(3)],["Humidity term (−0.226·√RH)",(-rr).toFixed(3)],["Wind term ("+V.toFixed(1)+" km/h)",vv.toFixed(3)],["Exponent",ex.toFixed(3)]].map(r=>"<tr><td>"+r[0]+"</td><td>"+r[1]+"</td></tr>").join("");
+}
+$("mode").onchange=()=>{const r=$("mode").value==="rh";$("rhBox").classList.toggle("hide",!r);$("dpBox").classList.toggle("hide",r);calc()};
+document.querySelectorAll("input,select").forEach(e=>e.addEventListener("input",calc));
+calc();
+</script>
+</body>
+</html>
